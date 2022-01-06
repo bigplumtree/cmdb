@@ -1,0 +1,80 @@
+---
+- hosts: default_group
+  remote_user: root
+  gather_facts: false
+  vars:
+  tasks:
+  - name: 关闭selinux
+    selinux: state=disabled
+    when: CLOSE_SELINUX == "true"
+
+
+  - name: 关闭防火墙
+    service: name=firewalld state=stopped enabled=false
+    when: CLOSE_FIREWALL == "true"
+
+
+  - name: 复制MySQL安装套包到服务器
+    copy: src=/cmdb_software/mysql/mysql5729.tar.gz dest=/tmp/mysql5729.tar.gz
+  
+
+  - name: 解压MySQL安装套包
+    unarchive: copy=no src=/tmp/mysql5729.tar.gz dest=/tmp/
+  
+
+  - name: 装载MySQL安装源
+    yum_repository: 
+      file: mysql-tst
+      name: mysql-tst
+      baseurl: file:///tmp/mysql5729
+      enabled: yes
+      gpgcheck: no
+      description: mysql-repo
+      state: present
+
+  
+  - name: 安装MySQL
+    yum: name=mysql-community*-5.7.29 state=present
+
+  
+  - name: 卸载MySQL安装源
+    yum_repository: 
+      file: mysql-tst
+      name: mysql-tst
+      baseurl: file:///tmp/mysql5729
+      enabled: yes
+      gpgcheck: no
+      description: mysql-repo
+      state: absent
+
+  
+  - name: 创建MySQL工作目录
+    file: path={{ MYSQL_WORKPATH }}/mysql/{{ item }} state=directory owner=mysql group=mysql
+    with_items:
+      - data
+      - log_bin
+      - socket
+      - tmp
+  
+  
+  - name: 替换MySQL配置文件
+    template: src=/cmdb_software/mysql/my.cnf dest=/etc/my.cnf
+  
+  
+  - name: 启动MySQL
+    service: name=mysqld state=started enabled=true
+  
+  
+  - name: 复制MySQL初始化脚本
+    template: src=/cmdb_software/mysql/init_mysql.sh dest=/tmp/init_mysql.sh mode=0755
+    
+  
+  - name: 执行脚本
+    shell: sh /tmp/init_mysql.sh
+    #ignore_errors: True
+    register: init_mysql
+    
+  
+  - name: 输出初始化脚本日志
+    debug: msg={{ init_mysql.stdout_lines }} verbosity=0
+  

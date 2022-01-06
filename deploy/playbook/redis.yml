@@ -1,0 +1,88 @@
+---
+- hosts: default_group
+  remote_user: root
+  gather_facts: false
+  vars:
+  tasks:
+  - name: 关闭selinux
+    selinux: state=disabled
+    when: CLOSE_SELINUX == "true"
+
+
+  - name: 关闭防火墙
+    service: name=firewalld state=stopped enabled=false
+    when: CLOSE_FIREWALL == "true"
+
+
+  - name: 安装所需组件
+    yum: name={{ item }} state=present
+    with_items:
+      - unzip
+      - sysstat
+      - wget
+      - wget
+      - net-tools
+      - screen
+      - lsof
+      - tcpdump
+      - nc
+      - mtr
+      - openssl-devel
+      - vim
+      - bash-completion
+      - lrzsz
+      - nmap
+      - telnet
+      - tree
+      - ntpdate
+      - chrony
+      - gcc
+      - patch
+      - libffi-devel
+      - python-devel
+      - zlib-devel
+      - bzip2-devel
+      - ncurses-devel
+      - sqlite-devel
+      - readline-devel
+      - tk-devel
+      - gdbm-devel
+      - xz-devel
+      - openssl
+      - bitmap-fonts-cjk
+
+
+  - name: 复制redis源码包到服务器
+    copy: src=/cmdb_software/redis/5/redis-5.0.9.tar.gz dest=/tmp/redis-5.0.9.tar.gz
+  
+  
+  - name: 解压redis源码包
+    unarchive: copy=no src=/tmp/redis-5.0.9.tar.gz dest=/tmp/
+  
+  
+  - name: 编译redis
+    shell: cd /tmp/redis-5.0.9 && make && make install
+  
+  
+  - name: 创建redis用户
+    user: name=redis shell=/sbin/nologin state=present
+  
+  
+  - name: 创建redis工作目录
+    file: path={{ REDIS_WORKPATH }}/redis owner=redis group=redis state=directory
+  
+  
+  - name: 复制redis配置文件
+    template: src=/cmdb_software/redis/5/redis.conf dest={{ REDIS_WORKPATH }}/redis/redis.conf owner=redis group=redis
+  
+  
+  - name: 复制redis启动文件
+    template: src=/cmdb_software/redis/5/redis.service dest=/etc/systemd/system/redis.service
+
+  
+  - name: 重载配置文件
+    systemd: daemon_reload=yes
+  
+  
+  - name: 启动redis
+    service: name=redis state=restarted enabled=true

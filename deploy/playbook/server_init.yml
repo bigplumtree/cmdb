@@ -1,0 +1,145 @@
+---
+- hosts: default_group
+  remote_user: root
+  gather_facts: false
+  vars:
+  tasks:
+  - name: 关闭selinux
+    selinux: state=disabled
+    when: CLOSE_SELINUX == "true"
+
+
+  - name: 关闭防火墙
+    service: name=firewalld state=stopped enabled=false
+    when: CLOSE_FIREWALL == "true"
+
+
+  - name: 修改时区
+    file: src=/usr/share/zoneinfo/Asia/Shanghai path=/etc/localtime state=link
+    when: CHANGE_ZONE == "true"
+
+
+  - name: 修改文件打开数限制
+    lineinfile: path=/etc/security/limits.conf line={{ item }} state=present
+    with_items:
+      - '*  soft nofile 65535'
+      - '*  hard nofile 65535'
+      - '*  soft nproc 65535'
+      - '*  hard nproc 65535'
+      - '*  soft memlock unlimited'
+      - '*  hard memlock unlimited'
+    when: SYSTEM_TUNING == "true"
+
+
+  - name: 修改内核参数
+    lineinfile: path=/etc/sysctl.conf line={{ item }} state=present
+    with_items:
+      - 'net.core.somaxconn=65535'
+      - 'net.ipv4.tcp_max_syn_backlog=65535'
+      - 'vm.swappiness=10'
+    when: SYSTEM_TUNING == "true"
+
+
+  - name: 修改历史命令
+    lineinfile: path=/etc/profile line={{ item }} state=present
+    with_items:
+      - 'export HISTSIZE=10000'
+      - 'export HISTTIMEFORMAT="%F %T `whoami` "'
+    when: SYSTEM_TUNING == "true"
+
+
+#- name: 添加host解析
+#  lineinfile: path=/etc/hosts line="{{ SERVER_IP }} tst-cloud-01 tst-iot-prod001 tst-iot-prod002" state=present
+
+#- name: 创建用户
+#  user: name=developer state=present
+
+
+  - name: 创建工作目录/data
+    file: path={{ WORK_DIR }} state=directory
+
+
+  - name: 同步时间
+    cron: name=ntp-time minute=*/5 hour=* day=* month=* weekday=* user=root job="/usr/sbin/ntpdate {{ NTP_SERVER }}" state=present
+
+
+
+# 挂载光盘之后需要卸载,防止误删除iso文件,重启服务器后无法进入系统
+  - name: 复制光盘镜像到目标服务器
+    copy: src=/cmdb_software/init/CentOS-7.6-x86_64-DVD-1810.iso dest=/mnt/CentOS-7.6-x86_64-DVD-1810.iso
+    when: NONE_NETWORK == "true"
+
+
+  - name: 挂载光盘
+    mount: src=/mnt/CentOS-7.6-x86_64-DVD-1810.iso path=/mnt/cdrom fstype=iso9660 state=mounted
+    when: NONE_NETWORK == "true"
+
+
+  - name: 装载光盘安装源
+    yum_repository:
+      file: c76media
+      name: c76media
+      baseurl: file:///mnt/cdrom/
+      enabled: yes
+      gpgcheck: no
+      description: c76media-repo
+      state: present
+    when: NONE_NETWORK == "true"
+
+
+  - name: 安装所需组件
+    yum: name={{ item }} state=present
+    with_items:
+      - unzip
+      - sysstat
+      - wget
+      - wget
+      - net-tools
+      - screen
+      - lsof
+      - tcpdump
+      - nc
+      - mtr
+      - openssl-devel
+      - vim
+      - bash-completion
+      - lrzsz
+      - nmap
+      - telnet
+      - tree
+      - ntpdate
+      - chrony
+      - gcc
+      - patch
+      - libffi-devel
+      - python-devel
+      - zlib-devel
+      - bzip2-devel
+      - ncurses-devel
+      - sqlite-devel
+      - readline-devel
+      - tk-devel
+      - gdbm-devel
+      - xz-devel
+      - openssl
+      - bitmap-fonts-cjk
+    when: INSTALL_DEPENDENCIES == "true"
+
+
+  - name: 卸载光盘安装源
+    yum_repository:
+      file: c76media
+      name: c76media
+      baseurl: file:///mnt/cdrom/
+      enabled: yes
+      gpgcheck: no
+      description: c76media-repo
+      state: absent
+    when: NONE_NETWORK == "true"
+
+
+  - name: 卸载光盘,防止误删除iso文件系统故障
+    mount: src=/mnt/CentOS-7.6-x86_64-DVD-1810.iso path=/mnt/cdrom fstype=iso9660 state=absent
+    when: NONE_NETWORK == "true"
+
+

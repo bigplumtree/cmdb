@@ -1,0 +1,7 @@
+__pycache__/
+*/*/__cache__
+*/__pycache__
+*.idea
+password.txt
+/deploy/playbook/*.retry
+

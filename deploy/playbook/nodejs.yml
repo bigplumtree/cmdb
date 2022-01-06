@@ -1,0 +1,24 @@
+---
+- hosts: default_group
+  remote_user: root
+  gather_facts: false
+  vars:
+  tasks:
+  - name: 关闭selinux
+    selinux: state=disabled
+    when: CLOSE_SELINUX == "true"
+
+  - name: 关闭防火墙
+    service: name=firewalld state=stopped enabled=false
+    when: CLOSE_FIREWALL == "true"
+
+  - name: 复制nodejs到服务器/tmp目录下
+    copy: src=/cmdb_software/nodejs/node-v{{ NODEJS_VERSION }}.tar.xz dest=/tmp/node-v{{ NODEJS_VERSION }}.tar.xz
+
+  - name: 复制环境变量到服务器
+    template: src=/cmdb_software/nodejs/nodejs.sh dest=/etc/profile.d/nodejs.sh mode=755
+
+  - name: 解压jdk压缩包到/usr/local
+    unarchive: copy=no src=/tmp/node-v{{ NODEJS_VERSION }}.tar.xz dest={{ NODEJS_PATH }} owner=root group=root
+
+

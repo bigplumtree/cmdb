@@ -1,0 +1,49 @@
+---
+- hosts: default_group
+  remote_user: root
+  gather_facts: false
+  vars:
+  tasks:
+  - name: 关闭selinux
+    selinux: state=disabled
+    when: CLOSE_SELINUX == "true"
+
+
+  - name: 关闭防火墙
+    service: name=firewalld state=stopped enabled=false
+    when: CLOSE_FIREWALL == "true"
+
+
+  - name: 复制influxdb安装到服务器
+    copy: src=/cmdb_software/influxdb/influxdb-1.8.0.x86_64.rpm dest=/tmp/influxdb-1.8.0.x86_64.rpm
+  
+  
+  - name: 安装influxdb
+    yum: name=/tmp/influxdb-1.8.0.x86_64.rpm state=present
+  
+  
+  - name: 复制influxdb配置文件到服务器
+    template: src=/cmdb_software/influxdb/influxdb.conf dest=/etc/influxdb/influxdb.conf
+  
+  
+  - name: 创建influxdb工作目录
+    file: path={{ INFLUXDB_WORKPATH }}/influxdb/{{ item }} state=directory owner=influxdb group=influxdb
+    with_items:
+      - meta
+      - data
+      - wal
+  
+  
+  - name: 启动influxdb
+    service: name=influxdb state=restarted enabled=true
+  
+  
+  - name: 创建influxdb admin账户
+    shell: /usr/bin/influx -port {{ INFLUXDB_PORT }} -database _internal -execute "create user admin with password '{{ INFLUXDB_PASSWORD }}' with all privileges"
+    ignore_errors: yes
+    register: create_influxdb_admin
+  
+
+  - name: 创建influxdb管理员失败,可能管理员已经创建完成,请登录服务器查看
+    debug: msg="创建influxdb管理员失败,可能管理员已经创建完成,请登录服务器查看"
+    when: ('ERR' in create_influxdb_admin.stdout)

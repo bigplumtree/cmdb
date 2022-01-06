@@ -1,0 +1,46 @@
+---
+- hosts: default_group
+  remote_user: root
+  gather_facts: false
+  vars:
+  tasks:
+  - name: 关闭selinux
+    selinux: state=disabled
+    when: CLOSE_SELINUX == "true"
+
+
+  - name: 关闭防火墙
+    service: name=firewalld state=stopped enabled=false
+    when: CLOSE_FIREWALL == "true"
+
+
+  - name: 创建minio启动用户
+    user: name=minio shell=/sbin/nologin state=present
+
+
+  - name: 创建minio工作目录
+    file: path={{ MINIO_WORKPATH }}/minio state=directory owner=minio group=minio
+
+
+  - name: 复制minio程序到服务器
+    copy: src=/cmdb_software/minio/minio dest={{ MINIO_WORKPATH }}/minio/minio owner=minio group=minio mode=0755
+
+
+  - name: 复制minio密码文件到服务器
+    template: src=/cmdb_software/minio/env dest={{ MINIO_WORKPATH }}/minio/env owner=minio group=minio
+
+
+  - name: 复制minio启动文件到服务器
+    template: src=/cmdb_software/minio/minio.service dest=/etc/systemd/system/minio.service
+
+
+  - name: 复制minio密码文件到服务器
+    template: src=/cmdb_software/minio/env dest={{ MINIO_WORKPATH }}/minio/env owner=minio group=minio
+
+
+  - name: 重载配置文件
+    systemd: daemon_reload=yes
+
+
+  - name: 启动minio
+    service: name=minio state=restarted enabled=true

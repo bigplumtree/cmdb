@@ -1,0 +1,66 @@
+---
+- hosts: default_group
+  remote_user: root
+  gather_facts: false
+  vars:
+  tasks:
+  - name: 关闭selinux
+    selinux: state=disabled
+    when: CLOSE_SELINUX == "true"
+
+
+  - name: 关闭防火墙
+    service: name=firewalld state=stopped enabled=false
+    when: CLOSE_FIREWALL == "true"
+
+
+  - name: 创建mongodb用户
+    user: name=mongodb shell=/sbin/nologin state=present
+
+
+  - name: 创建mongodb工作目录
+    file: path={{ MONGODB_WORKPATH }}/mongodb/{{ item }} state=directory owner=mongodb group=mongodb
+    with_items:
+      - data
+      - conf
+      - log
+
+
+  - name: 复制mongodb程序到服务器/tmp目录下
+    copy: src=/cmdb_software/mongodb/mongodb-{{ MONGODB_VERSION }}.tar.gz dest=/tmp/mongodb-{{ MONGODB_VERSION }}.tar.gz
+
+
+  - name: 复制环境变量到服务器
+    template: src=/cmdb_software/mongodb/mongodb.sh dest=/etc/profile.d/mongodb.sh mode=755
+
+
+  - name: 解压mongodb安装包到/usr/local
+    unarchive: copy=no src=/tmp/mongodb-{{ MONGODB_VERSION }}.tar.gz dest={{ MONGODB_PATH }} owner=root group=root
+
+
+  - name: 复制mongodb配置文件到服务器
+    template: src=/cmdb_software/mongodb/mongodb.conf dest={{ MONGODB_WORKPATH }}/mongodb/conf/mongodb.conf owner=mongodb group=mongodb
+
+
+  - name: 复制mongodb启动配置文件到服务器
+    template: src=/cmdb_software/mongodb/mongodb.service dest=/etc/systemd/system/mongodb.service
+
+
+  - name: 重载配置文件
+    systemd: daemon_reload=yes
+    register: create_mongodb_user
+
+  - name: 启动mongodb
+    service: name=mongodb state=restarted enabled=true
+
+
+  - name: 创建超级管理员
+    shell: echo "db.createUser({user:'admin',pwd:'{{ MONGODB_PASSWORD }}',roles:[{role:'root',db:'admin'}]})" | mongo 127.0.0.1:{{ MONGODB_PORT }}/admin --quiet
+    ignore_errors: yes
+    register: create_mongodb_user
+    when: MONGODB_AUTH == 'true'
+
+
+  - name: 创建mongodb超级管理员失败,可能管理员已经创建完成,请登录服务器查看
+    debug: msg="创建mongodb超级管理员失败,可能管理员已经创建完成,请登录服务器查看"
+    when: MONGODB_AUTH == 'true' and ('Error' in create_mongodb_user.stdout)
