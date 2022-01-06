@@ -102,6 +102,8 @@ WantedBy=multi-user.target
 ```
 
 8.安装部署功能，需要在服务器根目录下创建cmdb_software,并将程序包解压到该目录下
+
+程序包下载地址: https://www.aliyundrive.com/s/HAc3QFswohy
 ```
 mkdir /cmdb_software
 ```
