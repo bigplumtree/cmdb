@@ -34,7 +34,7 @@
 
 1. 先使用pip安装项目所需的三方模块
 ```
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 2. 使用pip安装uwsgi
 ```
@@ -115,7 +115,7 @@ RestartSec=20s
 WantedBy=multi-user.target
 ```
 
-8.安装部署功能，需要在服务器根目录下创建cmdb_software,并将程序包解压到该目录下
+8.安装部署功能，需要在服务器根目录下创建cmdb_software(这个目录已经在yml中写死了,我懒得改就没写成变量),并将程序包解压到该目录下
 
 程序包下载地址: https://www.aliyundrive.com/s/HAc3QFswohy
 ```
